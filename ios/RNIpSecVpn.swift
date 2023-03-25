@@ -101,7 +101,8 @@ class RNIpSecVpn: RCTEventEmitter {
 
         // Register to be notified of changes in the status. These notifications only work when app is in foreground.
         NotificationCenter.default.addObserver(forName: NSNotification.Name.NEVPNStatusDidChange, object : nil , queue: nil) {
-            notification in let nevpnconn = notification.object as! NEVPNConnection
+            notification in
+            let nevpnconn = notification.object as! NEVPNConnection
             self.sendEvent(withName: "stateChanged", body: [ "state" : checkNEStatus(status: nevpnconn.status) ])
         }
         
@@ -111,19 +112,19 @@ class RNIpSecVpn: RCTEventEmitter {
     
     
     @objc
-    func connect(_ name: NSString, address: NSString, username: NSString, password: NSString, secret: NSString, disconnectOnSleep: Bool=false, findEventsWithResolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock )->Void{
+    func connect(_ config: NSDictionary, address: NSString, username: NSString, password: NSString, secret: NSString, disconnectOnSleep: Bool=false, findEventsWithResolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock )->Void{
         
-        loadReference(name, address: address, username: username, password: password,  secret: secret, disconnectOnSleep: disconnectOnSleep, findEventsWithResolver: findEventsWithResolver, rejecter: rejecter, isPrepare: false)
+        loadReference(config, address: address, username: username, password: password,  secret: secret, disconnectOnSleep: disconnectOnSleep, findEventsWithResolver: findEventsWithResolver, rejecter: rejecter, isPrepare: false)
     }
     
     @objc
-    func saveConfig(_ name: NSString, address: NSString, username: NSString, password: NSString,  secret: NSString, findEventsWithResolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock )->Void{
+    func saveConfig(_ config: NSDictionary, address: NSString, username: NSString, password: NSString,  secret: NSString, findEventsWithResolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock )->Void{
         
-        loadReference(name, address: address, username: username, password: password,   secret: secret, disconnectOnSleep: false, findEventsWithResolver: findEventsWithResolver, rejecter: rejecter, isPrepare: true)
+        loadReference(config, address: address, username: username, password: password,   secret: secret, disconnectOnSleep: false, findEventsWithResolver: findEventsWithResolver, rejecter: rejecter, isPrepare: true)
     }
     
     @objc
-    func loadReference(_ name: NSString, address: NSString, username: NSString, password: NSString,  secret: NSString, disconnectOnSleep: Bool, findEventsWithResolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock,isPrepare:Bool) -> Void {
+    func loadReference(_ config: NSDictionary, address: NSString, username: NSString, password: NSString,  secret: NSString, disconnectOnSleep: Bool, findEventsWithResolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock,isPrepare:Bool) -> Void {
         
         let kcs = KeychainService()
         if !isPrepare{
@@ -134,22 +135,113 @@ class RNIpSecVpn: RCTEventEmitter {
             if error != nil {
                 print("VPN Preferences error: 1")
             } else {
+                if let type = config["type"] as? String{
+                    if "ipsec" == type{
+                        let p = NEVPNProtocolIPSec()
+                        p.username = username as String
+                        p.serverAddress = address as String
+                        if let authenticationMethod  = config["authenticationMethod"] as? NSInteger {
+                            p.authenticationMethod  = NEVPNIKEAuthenticationMethod.init(rawValue: authenticationMethod) ?? .none
+                        }
+                        else{
+                            p.authenticationMethod = NEVPNIKEAuthenticationMethod.none
+                        }
+                        
+                        
+                        
+                        kcs.save(key: "secret", value: secret as String)
+                        kcs.save(key: "password", value: password as String)
+                        
+                        p.sharedSecretReference = kcs.load(key: "secret")
+                        p.passwordReference = kcs.load(key: "password")
+                        
+                        p.useExtendedAuthentication = true
+                        p.disconnectOnSleep = disconnectOnSleep
+                        
+                        self.vpnManager.protocolConfiguration = p
+                    }
+                    else if "ikev2" == type{
+                        let p = NEVPNProtocolIKEv2()
+
+                        p.username = username as String
+                        p.serverAddress = address as String
+                        if let authenticationMethod  = config["authenticationMethod"] as? NSInteger {
+                            p.authenticationMethod  = NEVPNIKEAuthenticationMethod.init(rawValue: authenticationMethod) ?? .none
+
+                        }
+                        else{
+                            p.authenticationMethod = NEVPNIKEAuthenticationMethod.none
+                        }
+                        
+                        if password.length > 0 {
+                            kcs.save(key: "password", value: password as String)
+                            p.passwordReference = kcs.load(key: "password")
+                        }
+                        if secret.length  > 0 {
+                            kcs.save(key: "secret", value: secret as String)
+                            p.sharedSecretReference = kcs.load(key: "secret")
+                        }
+                        
+                        if let remoteIdentifier = config.value(forKey: "remoteIdentifier") as? String{
+                            p.remoteIdentifier = remoteIdentifier
+                        }
+                        if let localIdentifier = config.value(forKey: "localIdentifier") as? String{
+                            p.localIdentifier = localIdentifier
+                        }
+                        
+                        if let certificateType = config.value(forKey: "certificateType") as? Int{
+                            p.certificateType = .init(rawValue: certificateType) ?? .RSA
+                        }
+                        
+                        if let ikeSecurityAssociationParameters = config.value(forKey: "ikeSecurityAssociationParameters") as? NSDictionary ,
+                           let encryptionAlgorithm = ikeSecurityAssociationParameters["encryptionAlgorithm"] as? Int,
+                           let integrityAlgorithm = ikeSecurityAssociationParameters["integrityAlgorithm"] as? Int,
+                           let diffieHellmanGroup = ikeSecurityAssociationParameters["diffieHellmanGroup"] as? Int,
+                           let lifetimeMinutes = ikeSecurityAssociationParameters["lifetimeMinutes"] as? Int{
+                            
+                            p.ikeSecurityAssociationParameters.encryptionAlgorithm = .init(rawValue: encryptionAlgorithm) ?? .algorithmAES256
+                            
+                            p.ikeSecurityAssociationParameters.integrityAlgorithm  = .init(rawValue: integrityAlgorithm) ?? .SHA256
+                            
+                            p.ikeSecurityAssociationParameters.diffieHellmanGroup  = .init(rawValue: diffieHellmanGroup) ?? .group14
+                            
+                            p.ikeSecurityAssociationParameters.lifetimeMinutes  = Int32(lifetimeMinutes)
+
+                            
+                        }
+                        
+                        if let childSecurityAssociationParameters = config.value(forKey: "childSecurityAssociationParameters") as? NSDictionary ,
+                           let encryptionAlgorithm = childSecurityAssociationParameters["encryptionAlgorithm"] as? Int,
+                           let integrityAlgorithm = childSecurityAssociationParameters["integrityAlgorithm"] as? Int,
+                           let diffieHellmanGroup = childSecurityAssociationParameters["diffieHellmanGroup"] as? Int,
+                           let lifetimeMinutes = childSecurityAssociationParameters["lifetimeMinutes"] as? Int{
+                            
+                            p.childSecurityAssociationParameters.encryptionAlgorithm = .init(rawValue: encryptionAlgorithm) ?? .algorithmAES256
+                            
+                            p.childSecurityAssociationParameters.integrityAlgorithm  = .init(rawValue: integrityAlgorithm) ?? .SHA256
+                            
+                            p.childSecurityAssociationParameters.diffieHellmanGroup  = .init(rawValue: diffieHellmanGroup) ?? .group14
+                            
+                            p.childSecurityAssociationParameters.lifetimeMinutes  = Int32(lifetimeMinutes)
+
+                            
+                        }
+
+                        p.useExtendedAuthentication = true
+                        p.disconnectOnSleep = disconnectOnSleep
+                        self.vpnManager.protocolConfiguration = p
+                        
+                    }
+                    
+                    
+                    
+                    
+                }
                 
-                let p = NEVPNProtocolIPSec()
-                p.username = username as String
-                p.serverAddress = address as String
-                p.authenticationMethod = NEVPNIKEAuthenticationMethod.sharedSecret
                 
-                kcs.save(key: "secret", value: secret as String)
-                kcs.save(key: "password", value: password as String)
                 
-                p.sharedSecretReference = kcs.load(key: "secret")
-                p.passwordReference = kcs.load(key: "password")
                 
-                p.useExtendedAuthentication = true
-                p.disconnectOnSleep = disconnectOnSleep
-                
-                self.vpnManager.protocolConfiguration = p
+  
                 
                 var rules = [NEOnDemandRule]()
                 let rule = NEOnDemandRuleConnect()

@@ -58,8 +58,91 @@ export const prepare: () => Promise<void> = NativeModules.RNIpSecVpn.prepare;
 
 // connect to VPN.
 
+export enum NEVPNIKEv2CertificateType {
+  RSA = 1,
+  ECDSA256 = 2,
+  ECDSA384 = 3,
+  ECDSA521 = 4,
+  ed25519 = 5
+}
+
+export interface NEVPNIKEv2SecurityAssociationParameters {
+
+  /**
+   *case algorithmDES = 1
+  case algorithm3DES = 2
+  case algorithmAES128 = 3
+  case algorithmAES256 = 4
+  case algorithmAES128GCM = 5
+  case algorithmAES256GCM = 6
+  case algorithmChaCha20Poly1305 = 7
+   *
+   * @type {number}
+   * @memberof NEVPNIKEv2SecurityAssociationParameters
+   */
+  encryptionAlgorithm: number
+
+  /**
+   *case SHA96 = 1
+case SHA160 = 2
+case SHA256 = 3
+case SHA384 = 4
+case SHA512 = 5
+   *
+   * @type {number}
+   * @memberof NEVPNIKEv2SecurityAssociationParameters
+   */
+  integrityAlgorithm: number
+  /**
+   *case groupInvalid = 0
+case group1 = 1
+case group2 = 2
+case group5 = 5
+case group14 = 14
+case group15 = 15
+case group16 = 16
+case group17 = 17
+case group18 = 18
+case group19 = 19
+case group20 = 20
+case group21 = 21
+case group31 = 31
+   *
+   * @type {number}
+   * @memberof NEVPNIKEv2SecurityAssociationParameters
+   */
+  diffieHellmanGroup: number
+
+
+  lifetimeMinutes: number
+
+
+}
+
+export interface VPNConfigOptions {
+  name: string
+  type: "ipsec" | "ikev2"
+  /**
+   * case none = 0
+    case certificate = 1
+    case sharedSecret = 2
+   */
+  authenticationMethod: number
+  address: string
+  username: string
+  password: string
+  secret?: string
+  remoteIdentifier?: string
+  localIdentifier?: string
+  /* config options for ikev2 vpn type */
+  certificateType?: NEVPNIKEv2CertificateType
+  ikeSecurityAssociationParameters?: NEVPNIKEv2SecurityAssociationParameters
+  childSecurityAssociationParameters?: NEVPNIKEv2SecurityAssociationParameters
+
+}
+
 export const connect: (
-  name: string,
+  config: VPNConfigOptions,
   address: string,
   username: string,
   password: string,
@@ -73,15 +156,15 @@ export const connect: (
   }
 };
 
-export const saveConfig: (name: string, address: string, username: string, password: string, secret: string) => Promise<void> = (
-  name,
+export const saveConfig: (config: VPNConfigOptions, address: string, username: string, password: string, secret: string) => Promise<void> = (
+  config,
   address,
   username,
   password,
   secret
 ) => {
   if (Platform.OS == 'ios') {
-    return NativeModules.RNIpSecVpn.saveConfig(name, address || '', username || '', password || '', secret || '');
+    return NativeModules.RNIpSecVpn.saveConfig(config, address || '', username || '', password || '', secret || '');
   } else {
     return NativeModules.RNIpSecVpn.connect(address || '', username || '', password || '');
   }
