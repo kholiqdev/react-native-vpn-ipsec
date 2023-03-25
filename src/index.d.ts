@@ -91,6 +91,7 @@ export interface VPNConfigOptions {
     username: string;
     password: string;
     secret?: string;
+    identityData?: string;
     remoteIdentifier?: string;
     localIdentifier?: string;
     certificateType?: NEVPNIKEv2CertificateType;

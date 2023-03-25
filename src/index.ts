@@ -132,6 +132,7 @@ export interface VPNConfigOptions {
   username: string
   password: string
   secret?: string
+  identityData?: string
   remoteIdentifier?: string
   localIdentifier?: string
   /* config options for ikev2 vpn type */

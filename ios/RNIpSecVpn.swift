@@ -162,12 +162,12 @@ class RNIpSecVpn: RCTEventEmitter {
                     }
                     else if "ikev2" == type{
                         let p = NEVPNProtocolIKEv2()
-
+                        
                         p.username = username as String
                         p.serverAddress = address as String
                         if let authenticationMethod  = config["authenticationMethod"] as? NSInteger {
                             p.authenticationMethod  = NEVPNIKEAuthenticationMethod.init(rawValue: authenticationMethod) ?? .none
-
+                            
                         }
                         else{
                             p.authenticationMethod = NEVPNIKEAuthenticationMethod.none
@@ -191,6 +191,10 @@ class RNIpSecVpn: RCTEventEmitter {
                         
                         if let certificateType = config.value(forKey: "certificateType") as? Int{
                             p.certificateType = .init(rawValue: certificateType) ?? .RSA
+                        }
+                        
+                        if let identityData = config.value(forKey: "identityData") as? String,identityData.count > 0{
+                            p.identityData = identityData.data(using: .utf8)
                         }
                         
                         if let ikeSecurityAssociationParameters = config.value(forKey: "ikeSecurityAssociationParameters") as? NSDictionary ,
