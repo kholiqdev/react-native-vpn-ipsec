@@ -143,7 +143,6 @@ class RNIpSecVpn: RCTEventEmitter {
     @objc
     func loadReference(_ config: NSDictionary, address: NSString, username: NSString, password: NSString,  secret: NSString, disconnectOnSleep: Bool, findEventsWithResolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock,isPrepare:Bool) -> Void {
         
-        let kcs = KeychainService()
         if !isPrepare{
             self.sendEvent(withName: "stateChanged", body: [ "state" : 1 ])
         }
