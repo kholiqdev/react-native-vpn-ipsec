@@ -9,69 +9,86 @@
 import Foundation
 import NetworkExtension
 import Security
+import KeychainAccess
 
 
 
-// Identifiers
-let serviceIdentifier = "MySerivice"
-let userAccount = "authenticatedUser"
-let accessGroup = "MySerivice"
+public struct KeychainWrapper {
+    
+    public static var instance: Keychain {
+        return Keychain(service: Bundle.main.bundleIdentifier  ?? "org.keychain.rnvpn")
+    }
 
-// Arguments for the keychain queries
-var kSecAttrAccessGroupSwift = NSString(format: kSecClass)
-
-let kSecClassValue = kSecClass as CFString
-let kSecAttrAccountValue = kSecAttrAccount as CFString
-let kSecValueDataValue = kSecValueData as CFString
-let kSecClassGenericPasswordValue = kSecClassGenericPassword as CFString
-let kSecAttrServiceValue = kSecAttrService as CFString
-let kSecMatchLimitValue = kSecMatchLimit as CFString
-let kSecReturnDataValue = kSecReturnData as CFString
-let kSecMatchLimitOneValue = kSecMatchLimitOne as CFString
-let kSecAttrGenericValue = kSecAttrGeneric as CFString
-let kSecAttrAccessibleValue = kSecAttrAccessible as CFString
-
-class KeychainService: NSObject {
-    func save(key: String, value: String) {
-        let keyData: Data = key.data(using: String.Encoding(rawValue: String.Encoding.utf8.rawValue), allowLossyConversion: false)!
-        let valueData: Data = value.data(using: String.Encoding(rawValue: String.Encoding.utf8.rawValue), allowLossyConversion: false)!
-        
-        let keychainQuery = NSMutableDictionary()
-        keychainQuery[kSecClassValue as! NSCopying] = kSecClassGenericPasswordValue
-        keychainQuery[kSecAttrGenericValue as! NSCopying] = keyData
-        keychainQuery[kSecAttrAccountValue as! NSCopying] = keyData
-        keychainQuery[kSecAttrServiceValue as! NSCopying] = "VPN"
-        keychainQuery[kSecAttrAccessibleValue as! NSCopying] = kSecAttrAccessibleAlwaysThisDeviceOnly
-        keychainQuery[kSecValueData as! NSCopying] = valueData
-        // Delete any existing items
-        SecItemDelete(keychainQuery as CFDictionary)
-        SecItemAdd(keychainQuery as CFDictionary, nil)
+    public static func setPassword(_ password: String, forVPNID VPNID: String) {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        _ = try? instance.remove(key)
+        instance[key] = password
     }
     
-    func load(key: String) -> Data {
-        let keyData: Data = key.data(using: String.Encoding(rawValue: String.Encoding.utf8.rawValue), allowLossyConversion: false)!
-        let keychainQuery = NSMutableDictionary()
-        keychainQuery[kSecClassValue as! NSCopying] = kSecClassGenericPasswordValue
-        keychainQuery[kSecAttrGenericValue as! NSCopying] = keyData
-        keychainQuery[kSecAttrAccountValue as! NSCopying] = keyData
-        keychainQuery[kSecAttrServiceValue as! NSCopying] = "VPN"
-        keychainQuery[kSecAttrAccessibleValue as! NSCopying] = kSecAttrAccessibleAlwaysThisDeviceOnly
-        keychainQuery[kSecMatchLimit] = kSecMatchLimitOne
-        keychainQuery[kSecReturnPersistentRef] = kCFBooleanTrue
-        
-        var result: AnyObject?
-        let status = withUnsafeMutablePointer(to: &result) { SecItemCopyMatching(keychainQuery, UnsafeMutablePointer($0)) }
-        
-        if status == errSecSuccess {
-            if let data = result as! NSData? {
-                if NSString(data: data as Data, encoding: String.Encoding.utf8.rawValue) != nil {}
-                return data as Data
+    public static func setSecret(_ secret: String, forVPNID VPNID: String) {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        _ = try? instance.remove("\(key)psk")
+        instance["\(key)psk"] = secret
+    }
+    
+    public static func passwordRefForVPNID(_ VPNID: String) -> Data? {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        return instance[attributes: key]?.persistentRef
+    }
+    
+    public static func secretRefForVPNID(_ VPNID: String) -> Data? {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        if let data = instance[attributes: "\(key)psk"]?.data, let value = String(data: data, encoding: .utf8) {
+            if !value.isEmpty {
+                return instance[attributes: "\(key)psk"]?.persistentRef
             }
         }
-        return "".data(using: .utf8)!
+        return nil
     }
     
+
+    public static func setCertificate(_ secret: String, forVPNID VPNID: String) {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        _ = try? instance.remove("\(key)cert")
+        instance["\(key)cert"] = secret
+    }
+
+    public static func certificateRefForVPNID(_ VPNID: String) -> Data? {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        if let data = instance[attributes: "\(key)cert"]?.data, let value = String(data: data, encoding: .utf8) {
+            if !value.isEmpty {
+                return instance[attributes: "\(key)cert"]?.persistentRef
+            }
+        }
+        return nil
+    }
+    
+    
+    
+    
+    
+    
+    
+    public static func destoryKeyForVPNID(_ VPNID: String) {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        _ = try? instance.remove(key)
+        _ = try? instance.remove("\(key)psk")
+        _ = try? instance.remove("\(key)cert")
+    }
+    
+    public static func passwordStringForVPNID(_ VPNID: String) -> String? {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        return instance[key]
+    }
+    
+    public static func secretStringForVPNID(_ VPNID: String) -> String? {
+        let key = NSURL(string: VPNID)!.lastPathComponent!
+        return instance["\(key)psk"]
+    }
+
 }
+
+
 
 @objc(RNIpSecVpn)
 class RNIpSecVpn: RCTEventEmitter {
@@ -147,13 +164,20 @@ class RNIpSecVpn: RCTEventEmitter {
                             p.authenticationMethod = NEVPNIKEAuthenticationMethod.none
                         }
                         
+                        if let cert = config["cert"] as? String,cert.count>0{
+                            let identityData = cert.data(using: .utf8)
+                            p.identityData = identityData
+                        }
                         
                         
-                        kcs.save(key: "secret", value: secret as String)
-                        kcs.save(key: "password", value: password as String)
+                        KeychainWrapper.setSecret(secret as String, forVPNID: "secret")
+                        KeychainWrapper.setPassword(password as String, forVPNID: "password")
+
                         
-                        p.sharedSecretReference = kcs.load(key: "secret")
-                        p.passwordReference = kcs.load(key: "password")
+                        p.sharedSecretReference = KeychainWrapper.secretRefForVPNID("secret")
+                        p.passwordReference = KeychainWrapper.passwordRefForVPNID("password")
+                        
+               
                         
                         p.useExtendedAuthentication = true
                         p.disconnectOnSleep = disconnectOnSleep
@@ -172,14 +196,18 @@ class RNIpSecVpn: RCTEventEmitter {
                         else{
                             p.authenticationMethod = NEVPNIKEAuthenticationMethod.none
                         }
+                        if let cert = config["cert"] as? String,cert.count>0{
+                            let identityData = cert.data(using: .utf8)
+                            p.identityData = identityData
+                        }
                         
                         if password.length > 0 {
-                            kcs.save(key: "password", value: password as String)
-                            p.passwordReference = kcs.load(key: "password")
+                            KeychainWrapper.setPassword(password as String, forVPNID: "password")
+                            p.passwordReference = KeychainWrapper.passwordRefForVPNID("password")
                         }
-                        if secret.length  > 0 {
-                            kcs.save(key: "secret", value: secret as String)
-                            p.sharedSecretReference = kcs.load(key: "secret")
+                        if secret.length > 0{
+                            KeychainWrapper.setSecret(secret as String, forVPNID: "secret")
+                            p.sharedSecretReference = KeychainWrapper.secretRefForVPNID("secret")
                         }
                         
                         if let remoteIdentifier = config.value(forKey: "remoteIdentifier") as? String{
