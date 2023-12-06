@@ -114,6 +114,27 @@ class RNIpSecVpn: RCTEventEmitter {
             else{
                 print("No error from loading VPN viewDidLoad")
             }
+
+                                               
+            if self?.vpnManager.connection.status == .invalid{
+                let p = NEVPNProtocolIPSec()
+                p.username = "vpn"
+                p.serverAddress = "127.0.0.1"
+                p.authenticationMethod = .sharedSecret
+                p.useExtendedAuthentication = true
+                self?.vpnManager.protocolConfiguration  = p
+                self?.vpnManager.isEnabled = true
+                self?.vpnManager.localizedDescription = "vpn"
+                
+                self?.vpnManager.saveToPreferences { error in
+                    if let err = error {
+                        print("Failed to save profile: \(err.localizedDescription)")
+                    } else {
+                    
+                    }
+                }
+                
+            }
         }
 
         // Register to be notified of changes in the status. These notifications only work when app is in foreground.
