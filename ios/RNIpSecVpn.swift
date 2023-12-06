@@ -107,7 +107,7 @@ class RNIpSecVpn: RCTEventEmitter {
     @objc
     func prepare(_ findEventsWithResolver: RCTPromiseResolveBlock, rejecter: RCTPromiseRejectBlock) -> Void {
         
-        self.vpnManager.loadFromPreferences { (error) in
+        self.vpnManager.loadFromPreferences {[weak self] (error) in
             if error != nil {
                 print(error.debugDescription)
             }
