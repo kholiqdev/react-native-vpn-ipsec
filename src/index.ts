@@ -185,4 +185,7 @@ export const getCharonErrorState: () => Promise<CharonErrorState> = NativeModule
 // does not raise any exception
 export const disconnect: () => Promise<void> = NativeModules.RNIpSecVpn.disconnect;
 
+//delete keychain password and secret refs
+export const clearKeychainRefs:()=>Promise<void> = NativeModules.RNIpSecVpn.clearKeychainRefs;
+
 export default NativeModules.RNIpSecVpn;

@@ -365,6 +365,11 @@ class RNIpSecVpn: RCTEventEmitter {
             fatalError()
         }
     }
+    @objc
+    func clearKeychainRefs(){
+        KeychainWrapper.destoryKeyForVPNID("secret")
+        KeychainWrapper.destoryKeyForVPNID("password")
+    }
     
     @objc
     func getConnectionTimeSecond(_ findEventsWithResolver:RCTPromiseResolveBlock, rejecter: RCTPromiseRejectBlock) -> Void {

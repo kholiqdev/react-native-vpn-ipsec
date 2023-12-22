@@ -104,6 +104,7 @@ export declare const getCurrentState: () => Promise<VpnState>;
 export declare const getConnectionTimeSecond: () => Promise<Number>;
 export declare const getCharonErrorState: () => Promise<CharonErrorState>;
 export declare const disconnect: () => Promise<void>;
+export declare const clearKeychainRefs: () => Promise<void>;
 declare const _default: any;
 export default _default;
 //# sourceMappingURL=index.d.ts.map

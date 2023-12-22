@@ -83,4 +83,6 @@ export const getCharonErrorState = NativeModules.RNIpSecVpn.getCharonErrorState;
 // disconnect and stop VPN service.
 // does not raise any exception
 export const disconnect = NativeModules.RNIpSecVpn.disconnect;
+//delete keychain password and secret refs
+export const clearKeychainRefs = NativeModules.RNIpSecVpn.clearKeychainRefs;
 export default NativeModules.RNIpSecVpn;

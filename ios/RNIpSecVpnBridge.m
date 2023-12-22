@@ -26,6 +26,8 @@ RCT_EXTERN_METHOD(getCurrentState:(RCTPromiseResolveBlock)findEventsWithResolver
 RCT_EXTERN_METHOD(getConnectionTimeSecond:(RCTPromiseResolveBlock)findEventsWithResolver rejecter:(RCTPromiseRejectBlock)rejecter)
 
 RCT_EXTERN_METHOD(getCharonErrorState:(RCTPromiseResolveBlock)findEventsWithResolver rejecter:(RCTPromiseRejectBlock)rejecter)
+// delete password and secret keychainrefs
+RCT_EXTERN_METHOD(clearKeychainRefs)
 
 @end
 
